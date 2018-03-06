@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minimal GoJS Sample</title>
+<meta name="description" content="An almost minimal diagram using a very simple node template and the default link template." />
+<!-- Copyright 1998-2018 by Northwoods Software Corporation. -->
+<meta charset="UTF-8">
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  #diagram {
+    border: solid 1px black; flex: 1 1 auto;
+  }
+</style>
+<script src="go.js"></script>
+<script id="code">
+  function init() {
+    var $ = go.GraphObject.make;  // for conciseness in defining templates
+    myDiagram = $(go.Diagram, "diagram",  // create a Diagram for the DIV HTML element
+                  {
+                    layout: $(go.LayeredDigraphLayout, { isInitial: true, isOngoing: false, layerSpacing: 1 }),
+                    initialContentAlignment: go.Spot.Center,  // center the content
+                    "undoManager.isEnabled": true,  // enable undo & redo
+                  });
+    // define a simple Node template
+    myDiagram.nodeTemplate =
+      $(go.Node, "Auto",  // the Shape will go around the TextBlock
+        $(go.Shape, "RoundedRectangle", { strokeWidth: 0},
+          // Shape.fill is bound to Node.data.color
+          new go.Binding("fill", "color")),
+        $(go.TextBlock,
+          { margin: 8 },  // some room around the text
+          // TextBlock.text is bound to Node.data.key
+          new go.Binding("text", "key"))
+      );
+    // but use the default Link template, by not setting Diagram.linkTemplate
+    // create the model data that will be represented by Nodes and Links
+    myDiagram.layoutDiagram(true);
+  }
+
+  function loadFile() {
+    var input, file, fr;
+
+    input = document.getElementById('fileinput');
+    if (!input) {
+      alert("Um, couldn't find the fileinput element.");
+    }
+    else if (!input.files) {
+      alert("This browser doesn't seem to support the `files` property of file inputs.");
+    }
+    else if (!input.files[0]) {
+      alert("Please select a file before clicking 'Load'");
+    }
+    else {
+      file = input.files[0];
+      fr = new FileReader();
+      fr.onload = receivedText;
+      fr.readAsText(file);
+    }
+
+    function receivedText(e) {
+      lines = e.target.result;
+
+      // find nodes
+      nodes = [];
+      search_regexes = [
+        /to say (.+?):/ig,
+        /instead of (.+?):/ig,
+        /the ((conversation|description|scent) of (.+?)):/ig,
+        /(an everyturn rule):/ig,
+        /(when (.+?) begins):/ig,
+      ]
+      for (var search_regex of search_regexes) {
+        while (true) {
+          regex_result = search_regex.exec(lines);
+          if (regex_result === null) {
+            break;
+          }
+          name = regex_result[1];
+          index = regex_result.index;
+          nodes.push({ name, index });
+        }
+      }
+
+      nodes.sort((e1, e2) => e1.index < e2.index ? -1 : 1);
+
+      // find nodes that are used
+      used_nodes = [];
+      search_node_regexes = nodes.map(node =>
+        ({ name: node.name, regex: new RegExp('\\[('+node.name+')\\]', 'ig') })
+      );
+      for (var search_regex of search_node_regexes) {
+        regex_result = search_regex.regex.exec(lines);
+        if (regex_result === null) {
+          continue;
+        }
+        name = regex_result[1];
+        index = regex_result.index;
+        used_nodes.push({ name: search_regex.name, index });
+      }
+      used_nodes.sort((e1, e2) => e1.index < e2.index ? -1 : 1);
+
+      // make pairs
+      pairs = [];
+      master_nodes = nodes
+        .map(e => ({...e, type: 'node'}) )
+        .concat(
+          used_nodes.map(e => ({...e, type: 'used_node'}) )
+        );
+      master_nodes.sort((e1, e2) => e1.index < e2.index ? -1 : 1);
+      cur_node = nodes[0];
+      for (var node of master_nodes) {
+        if (node.type === 'node') {
+          cur_node = node;
+        } else {
+          pairs.push({from: cur_node.name, to: node.name});
+        }
+      }
+
+
+      // sanitize nodes and edges
+      graph_nodes = nodes.map(e => {
+        if (e.name.includes(' while ')) {
+          return {
+            ...e,
+            name: e.name.split(' while ')[0],
+          };
+        } else {
+          return e;
+        }
+      });
+      nodes_tmp = [];
+      for (var node of graph_nodes) {
+        if (nodes_tmp.some(node_tmp => node.name.toLowerCase() === node_tmp.name.toLowerCase())) {
+          continue;
+        }
+        nodes_tmp.push(node);
+      }
+      graph_nodes = nodes_tmp.map(e => ({ key: e.name.toLowerCase(), color: 'lightblue' }));
+
+      graph_edges = pairs.map(e => ({ from: e.from.toLowerCase(), to: e.to.toLowerCase() }));
+
+      myDiagram.model = new go.GraphLinksModel(
+        graph_nodes,
+        graph_edges,
+      );
+    }
+  }
+</script>
+</head>
+<body style="display: flex; flex-flow: column; height: 100%" onload="init();">
+  <div>
+    <form id="jsonFile" name="jsonFile" enctype="multipart/form-data" method="post">
+      <fieldset>
+        upload i7x file
+        <input type='file' id='fileinput' onchange='loadFile();'>
+      </fieldset>
+    </form>
+  </div>
+  <div id="diagram">
+    This is a quick and dirty flowchart maker for Inform files. To be used to quickly reference how things are structured in a file.
+  </div>
+</body>
+</html>
