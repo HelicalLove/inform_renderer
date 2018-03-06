@@ -70,7 +70,7 @@
       search_regexes = [
         /^to say (.+?):/igm,
         /^instead of (.+?):/igm,
-        /^the ((conversation|description|scent) of (.+?)) is .+?/igm,
+        /^the ((.+?) of (.+?)) is .+?/igm,
         /^(an everyturn rule):/igm,
         /^(when (.+?) begins):/igm,
       ]
@@ -141,9 +141,13 @@
         }
         nodes_tmp.push(node);
       }
-      graph_nodes = nodes_tmp.map(e => ({ key: e.name.toLowerCase(), color: 'lightblue' }));
+      graph_nodes = nodes_tmp.map(e => ({ key: e.name, color: 'lightblue' }));
 
-      graph_edges = pairs.map(e => ({ from: e.from.toLowerCase(), to: e.to.toLowerCase() }));
+      graph_edges = pairs.map(pair => {
+        from_sanitized = nodes.find(node => node.name.toLowerCase() === pair.from.toLowerCase());
+        to_sanitized = nodes.find(node => node.name.toLowerCase() === pair.to.toLowerCase());
+        return { from: from_sanitized.name, to: to_sanitized.name };
+      });
 
       myDiagram.model = new go.GraphLinksModel(
         graph_nodes,
