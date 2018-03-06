@@ -68,11 +68,11 @@
       // find nodes
       nodes = [];
       search_regexes = [
-        /to say (.+?):/ig,
-        /instead of (.+?):/ig,
-        /the ((conversation|description|scent) of (.+?)) is .+?/ig,
-        /(an everyturn rule):/ig,
-        /(when (.+?) begins):/ig,
+        /^to say (.+?):/igm,
+        /^instead of (.+?):/igm,
+        /^the ((conversation|description|scent) of (.+?)) is .+?/igm,
+        /^(an everyturn rule):/igm,
+        /^(when (.+?) begins):/igm,
       ]
       for (var search_regex of search_regexes) {
         while (true) {
